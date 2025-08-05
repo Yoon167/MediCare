@@ -1017,65 +1017,109 @@ if (toggleRegConfirmPassword && regConfirmPasswordInput) {
             '<i class="fas fa-eye mr-1"></i> Hide Password';
     });
 }
+// Example login form submission with fetch
+loginForm.addEventListener('submit', function(e) {
+    e.preventDefault();
 
-// Form submission animations
-const loginForm = document.getElementById('loginForm');
-const registerForm = document.getElementById('registerForm');
+    const email = loginForm.querySelector('input[type="email"]').value;
+    const password = loginForm.querySelector('input[type="password"]').value;
 
-if (loginForm) {
-    loginForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const loginText = document.getElementById('loginText');
-        const loginSpinner = document.getElementById('loginSpinner');
-        const loginMessage = document.getElementById('loginMessage');
-        
-        if (loginText && loginSpinner && loginMessage) {
-            loginText.classList.add('hidden');
-            loginSpinner.classList.remove('hidden');
-            
-            // Simulate login request
+    const loginText = document.getElementById('loginText');
+    const loginSpinner = document.getElementById('loginSpinner');
+    const loginMessage = document.getElementById('loginMessage');
+
+    loginText.classList.add('hidden');
+    loginSpinner.classList.remove('hidden');
+    loginMessage.innerHTML = '';
+
+    fetch('/api/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email, password})
+    })
+    .then(response => response.json())
+    .then(data => {
+        loginSpinner.classList.add('hidden');
+        loginText.classList.remove('hidden');
+
+        if (data.success) {
+            loginMessage.textContent = 'Login successful! Redirecting...';
+            loginMessage.classList.add('text-green-500');
             setTimeout(() => {
-                loginSpinner.classList.add('hidden');
-                loginText.classList.remove('hidden');
-                loginMessage.innerHTML = 'Login successful! Redirecting...';
-                loginMessage.classList.add('text-green-500');
-                
-                setTimeout(() => {
-                    authModal.classList.remove('active');
-                    document.body.style.overflow = '';
-                    loginMessage.innerHTML = '';
-                }, 1500);
-            }, 2000);
+                authModal.classList.remove('active');
+                document.body.style.overflow = '';
+                // Redirect or update UI
+                window.location.href = '/dashboard'; // example redirect
+            }, 1500);
+        } else {
+            loginMessage.textContent = data.message || 'Login failed.';
+            loginMessage.classList.add('text-red-500');
         }
+    })
+    .catch(err => {
+        loginSpinner.classList.add('hidden');
+        loginText.classList.remove('hidden');
+        loginMessage.textContent = 'An error occurred. Please try again.';
+        loginMessage.classList.add('text-red-500');
     });
-}
+});
 
 if (registerForm) {
     registerForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const registerText = document.getElementById('registerText');
-        const registerSpinner = document.getElementById('registerSpinner');
-        const registerMessage = document.getElementById('registerMessage');
-        
-        if (registerText && registerSpinner && registerMessage) {
-            registerText.classList.add('hidden');
-            registerSpinner.classList.remove('hidden');
-            
-            // Simulate registration request
+    e.preventDefault();
+
+    const firstName = registerForm.querySelector('input[type="text"]:nth-child(1)').value;
+    const lastName = registerForm.querySelector('input[type="text"]:nth-child(2)').value;
+    const email = registerForm.querySelector('input[type="email"]').value;
+    const role = registerForm.querySelector('select:nth-of-type(1)').value;
+    const department = registerForm.querySelector('select:nth-of-type(2)').value;
+    const password = document.getElementById('regPassword').value;
+    const confirmPassword = document.getElementById('regConfirmPassword').value;
+
+    const registerText = document.getElementById('registerText');
+    const registerSpinner = document.getElementById('registerSpinner');
+    const registerMessage = document.getElementById('registerMessage');
+
+    if (password !== confirmPassword) {
+        registerMessage.textContent = 'Passwords do not match.';
+        registerMessage.classList.add('text-red-500');
+        return;
+    }
+
+    registerText.classList.add('hidden');
+    registerSpinner.classList.remove('hidden');
+    registerMessage.innerHTML = '';
+
+    fetch('/api/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({firstName, lastName, email, role, department, password})
+    })
+    .then(response => response.json())
+    .then(data => {
+        registerSpinner.classList.add('hidden');
+        registerText.classList.remove('hidden');
+
+        if (data.success) {
+            registerMessage.textContent = 'Registration successful! Please check your email for verification.';
+            registerMessage.classList.add('text-green-500');
+
             setTimeout(() => {
-                registerSpinner.classList.add('hidden');
-                registerText.classList.remove('hidden');
-                registerMessage.innerHTML = 'Registration successful! Please check your email for verification.';
-                registerMessage.classList.add('text-green-500');
-                
-                setTimeout(() => {
-                    loginTabBtn.click();
-                    registerMessage.innerHTML = '';
-                }, 3000);
-            }, 2000);
+                loginTabBtn.click();
+                registerMessage.innerHTML = '';
+            }, 3000);
+        } else {
+            registerMessage.textContent = data.message || 'Registration failed.';
+            registerMessage.classList.add('text-red-500');
         }
+    })
+    .catch(err => {
+        registerSpinner.classList.add('hidden');
+        registerText.classList.remove('hidden');
+        registerMessage.textContent = 'An error occurred. Please try again.';
+        registerMessage.classList.add('text-red-500');
     });
-}
+});
 
 // Back to top button
 const backToTopBtn = document.getElementById('backToTop');
@@ -1161,6 +1205,39 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+// Dummy user store (replace with DB)
+const users = [];
+
+// Register endpoint
+app.post('/api/register', (req, res) => {
+    const {firstName, lastName, email, role, department, password} = req.body;
+    if (users.find(u => u.email === email)) {
+        return res.json({success: false, message: 'Email already registered.'});
+    }
+    users.push({firstName, lastName, email, role, department, password});
+    // Send verification email here (optional)
+    res.json({success: true});
+});
+
+// Login endpoint
+app.post('/api/login', (req, res) => {
+    const {email, password} = req.body;
+    const user = users.find(u => u.email === email && u.password === password);
+    if (user) {
+        // Create session or token here
+        res.json({success: true});
+    } else {
+        res.json({success: false, message: 'Invalid email or password.'});
+    }
+});
+
+app.listen(3000, () => console.log('Server running on port 3000'));
+
+    
     </script>
 </body>
 </html>
